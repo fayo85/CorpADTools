@@ -1,72 +1,22 @@
 #sad corporate life 
-function get-admanager{
-    [CmdletBinding()]
+Set-StrictMode -Version Latest
+# Get public and private function definition files.
 
-    Param(
-    [string] $userID
-    
-)
-    try {$manager= Get-ADUser $userID -Properties Manager -ErrorAction SilentlyContinue|Select-Object -ExpandProperty Manager
-    if(![string]::IsNullOrEmpty($manager))
-    {$manager=($manager.split(',')[0]).replace('CN=','')}
-    return $manager
+$Public = @(Get-ChildItem -Path $PSScriptRoot\Public\*.ps1 -ErrorAction SilentlyContinue)
+
+$Private = @(Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue)
+
+# Dot source the files.
+foreach ($import in @($Public + $Private)) {
+    try {
+        Write-Verbose "Importing $($import.FullName)" 
+        . $import.FullName
+    } catch {
+        Write-Error "Failed to import function $($import.FullName): $_"
     }
-    catch {}
 }
 
-function Get-adEscalationPath 
-{
-    param(
-        [string] $userid
-    )
-    $level=0
-
-$numbers=@{
-    1 = '1st';
-    2 = '2nd';
-    3='3rd';
-    4='4th';
-    5='5th';
-    6='6th';
-    7='7th';
-    8='8th';
-    9='9th';
-    10='10th'
+## Export all of the public functions making them available to the user
+foreach ($file in $Public) {
+    Export-ModuleMember -Function $file.BaseName
 }
-    $escalationPath=@()
-    
-    $obj=""|select-object userid
-    $obj.userid=$userid
-    while (![string]::IsNullOrEmpty((get-admanager -userID $userid )))
-    {
-        
-        $level++
-        $obj|Add-Member -MemberType NoteProperty -Name ($numbers[$level] + "LevelManager" ) -Value (get-admanager -userID $userid)
-        $escalationPath+=$obj
-        $userid=get-admanager -userID $userid
-    }
-    return $obj
-}
-
-function Get-adSponsoredAccounts
-{
-param(
-    [CmdletBinding()]
-    [string] $userID 
-    
-)
-try {
-  $directReports=  Get-aduser -Identity $userID -Properties DirectReports |Select-Object -ExpandProperty DirectReports
-  if($null -ne $directReports )
-  {
-    
-    $directReports=$directReports|ForEach-Object {$_.split(',')[0].replace('CN=','')}
-  }
-}
-catch {
-    Write-Output "error handling to be added here "
-}
-$directReports
-}
-
-Export-ModuleMember *
